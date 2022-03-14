@@ -30,7 +30,6 @@ def log(conn):
     # Globali (u sklopu funkcije)
     log = 'otac'
     users = []
-    log_hash = "gasgsaasffsadsa"
     pass_check = "asdadsa"
     reg_pass = "pass"
     reg_ans = ["yes", "Yes", "y", "Y", "YES"]
@@ -38,6 +37,7 @@ def log(conn):
     
     sql = ''' SELECT UserID, Ime, Password
                 FROM Users'''
+
     sql3 = '''INSERT INTO Users(UserID, Ime, Password)
               VALUES(?,?,?)'''
     
@@ -65,9 +65,8 @@ def log(conn):
         for user in useri: # Petlja koja trazi koji user pokusava log in.
             if user[1] == log:
                 while pass_check != True: # Petlja za proveravanje passworda
-                    log_pass = input("Password? ")
-                    log_hash = bcrypt.hashpw(log_pass.encode(), bcrypt.gensalt()) 
-                    pass_check = bcrypt.checkpw(log_pass.encode(), log_hash)
+                    log_pass = input("Password? ") 
+                    pass_check = bcrypt.checkpw(log_pass.encode('utf-8'), user[2])
                     if pass_check != True:
                         print("Wrong password, try again please.")
                     else:
@@ -83,7 +82,7 @@ def log(conn):
                 print("Password must be atleast 8 characters long.")
             else:
                 if len(reg_pass) >= 8: # Enkripcija passworda
-                    pass_hash = bcrypt.hashpw(reg_pass.encode(), bcrypt.gensalt())
+                    pass_hash = bcrypt.hashpw(reg_pass.encode("utf-8"), bcrypt.gensalt())
                     break
         
         if reg_inp != int and len(reg_pass) >= 8: # Unosenje passworda u tabelu
@@ -113,11 +112,16 @@ def provera(conn, logi):
     now = datetime.now()
     now_str = now.strftime("%d/%m/%y %H:%M")
     
+    #Varijable
     nista = ["", None]
     users = []
+    logg = True
+    loged_in = []
+    
     
     cur.execute(sql0)
     useri = cur.fetchall()
+    
     for user in useri:
         user1 = user[1]
         users.append(user1)
@@ -133,32 +137,46 @@ def provera(conn, logi):
     sql4 = '''INSERT INTO Unosi(UnosBr,Ime,VremeUlaza)
               VALUES(?,?,?)''' #Novi unos za login
     
-    if unosi[-1][3] not in nista:
-        cur.execute(sql4, (unosi[-1][0]+1, logi, now_str)) #sql4 kod bi trebao da bude pravljenje novog unosa u tabelu na osnovu usernamea
-        print(f"Dobrodosli {logi}.\nVreme pocetka: {now_str}\nZelim vam ugodno programiranje!")
-        conn.commit()
-        log_in = True
-        return log_in
-    elif logi != unosi[-1][1]:
-        cur.execute(sql4, (unosi[-1][0]+1, logi, now_str)) #sql4 kod bi trebao da bude pravljenje novog unosa u tabelu na osnovu usernamea
-        print(f"Dobrodosli {logi}.\nVreme pocetka: {now_str}\nZelim vam ugodno programiranje!")
-        conn.commit()
-        log_in = True
-        return log_in
-    #Ova petlja provera je li user vec ulogovan i ako jeste da ga izloguje a ako nije da pravi novi unos
+    #Petlja za dodavanje entrija u loged_in listu 
     for unos in unosi:
-        if unos[3] in nista and logi in users:
+        if logi == unos[1] and unos[3] in nista:
+            loged_in.append(unos)
+    
+    #boolean za log in i log out
+    for unos in loged_in:
+        if logi == unos[1] and unos[3] in nista:
+            logg = False
+    
+    
+    if logg == True:
+    
+        for unos in unosi:
+            if unos[3] not in nista and logi == unos[1]:
+                cur.execute(sql4, (unosi[-1][0]+1, logi, now_str)) #sql4 kod bi trebao da bude pravljenje novog unosa u tabelu na osnovu usernamea
+                print(f"Dobrodosli {logi}.\nVreme pocetka: {now_str}\nZelim vam ugodno programiranje!")
+                conn.commit()
+                log_in = True
+                return log_in
+            elif logi != unos[-1][1]:
+                cur.execute(sql4, (unosi[-1][0]+1, logi, now_str)) #sql4 kod bi trebao da bude pravljenje novog unosa u tabelu na osnovu usernamea
+                print(f"Dobrodosli {logi}.\nVreme pocetka: {now_str}\nZelim vam ugodno programiranje!")
+                conn.commit()
+                log_in = True
+                return log_in
+    else:     
+    #Ova petlja proverava je li user vec ulogovan i ako jeste da ga izloguje a ako nije da pravi novi unos
+        for unos in loged_in:
+            if unos[3] in nista and logi == unos[1]:
             #Treba da te pita sta si radio, detalje i kolika je bila pauza
-            jezik = input("Koji jezik bate ?  ")
-            detalji = input("Reci nam malo o tome:  ")
-            pauza = input("A koliko si pauzirao ? (Format: HH:MM)  ")
-            cur.execute(sql2, (now_str, pauza, unos[0]))
-            cur.execute(sql3, (unos[0],jezik, detalji))
-            conn.commit()
-            unos_br = unos[0]
+                jezik = input("Koji jezik ?  ")
+                detalji = input("Reci nam malo o tome:  ")
+                pauza = input("A koliko si pauzirao ? (Format: HH:MM)  ")
+                cur.execute(sql2, (now_str, pauza, unos[0]))
+                cur.execute(sql3, (unos[0],jezik, detalji))
+                conn.commit()
+                unos_br = unos[0]
             
-            return unos_br      
-
+                return unos_br      
 
 def update_task(conn, unos_br):
     """
@@ -221,9 +239,8 @@ def main():
         log_in = logi
     if logi != False and logi != True:
         unos_br = provera(conn, logi)
-        if log_in == False:
-            with conn:
-                update_task(conn, unos_br)
+        with conn:
+            update_task(conn, unos_br)
     else:
         print("Ok, ugodan dan vam zelim")
 
